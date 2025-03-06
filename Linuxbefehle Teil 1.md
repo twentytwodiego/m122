@@ -13,6 +13,11 @@ Der Standard-Prompt zeigt Informationen zum aktuellen Benutzer, Host und Verzeic
 
 Beispiele:
 
+user@host:/ #
+[user@host: ~ ]$
+user@host>
+user / %
+
 3\. Wichtige Zeichen in der Shell
 ---------------------------------
 
@@ -101,6 +106,8 @@ Beispiele:
 Aliase erlauben die Erstellung von Kurzbefehl-Namen für komplexere Befehle.
 
 **Beispiel:**
+alias ll='ls -alFG'
+alias gohome="cd ~"
 
 9\. Wildcards und Brace Expansion
 ---------------------------------
@@ -122,6 +129,8 @@ Aliase erlauben die Erstellung von Kurzbefehl-Namen für komplexere Befehle.
     
 
 **Verschachtelte Brace Expansion:**
+
+touch file{original{.bak,.txt},kopie{.bak,.txt}}
 
 Erstellt: fileoriginal.txt, fileoriginal.bak, filekopie.txt, filekopie.bak
 
