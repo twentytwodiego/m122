@@ -118,7 +118,7 @@ Aliase erlauben die Erstellung von Kurzbefehl-Namen für komplexere Befehle.
     
 *   {1..9} Erstellt eine Datei für jede Zahl im Bereich (touch file{1..9}.txt)
     
-*   ! Negiert einen Ausdruck (ls file{!3}.txt listet alle außer file3.txt)
+*   ! Negiert einen Ausdruck (ls file{!3}.txt listet alle ausser file3.txt)
     
 
 **Verschachtelte Brace Expansion:**
