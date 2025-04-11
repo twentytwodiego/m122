@@ -77,7 +77,7 @@ check_new_week() {
 
   if [ "$current_week" != "$last_logged_week" ]; then
     echo "------" >> "$LOGFILE"
-    echo "Woche ab Montag, $(date -d "monday" +%d.%m.%Y)" >> "$LOGFILE"
+    echo "Woche ab Montag, $(date -d "last monday" +%d.%m.%Y)" >> "$LOGFILE"
     echo "$current_week" > "$STATEFILE"
   fi
 }
