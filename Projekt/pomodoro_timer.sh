@@ -60,7 +60,7 @@ waehle_fach() {
       ;;
     *) 
       echo "❗ Ungültige Eingabe. Standard: 'Allgemein'"
-      FACH="Allgemein"
+      exit 1
       ;;
   esac
   echo "Du lernst heute für: $FACH"
