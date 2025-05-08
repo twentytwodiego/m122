@@ -1,28 +1,15 @@
 #!/bin/bash
-# Programm: Lerntimer nach Pomodoro-Technik
+# Pomodoro Lern-Timer mit Fächer-Verwaltung
 # Beschreibung: Ein Lerntimer der alle 25 Minuten eine 5 Minuten Pause macht wie bei der Pomodoro-Technik.
-#		Nach 4 Lernphasen gibt es eine 25 minütige Pause. Sobald der Benutzer "stop" schreibt wird
-#		das Skript angehalten. In einer separaten Datei namens "lernzeit_log.txt". In der Datei
-#		werden die Lernzeiten eingetragen. Das Datum der Lernzeit steht auch. Nach einem Sonntag
-#		wird die wöchentliche Lernzeit zusammengefasst.
-#
-#
-# Aufruf: ./pomodoro_timer.sh
-# Optionen:
-# Parameter:
-#
+#               Nach 4 Lernphasen gibt es eine 25 minütige Pause. Sobald der Benutzer "stop" schreibt wird
+#               das Skript angehalten. Lernzeiten werden mit Datum in "lernzeit_log.txt" gespeichert.
+#               Fächer sind über eine externe Datei anpassbar. Nach einem Sonntag wird die Woche zusammengefasst.
 # Autor: D. Vignuda
-#
-# Version: 1.3
+# Version: 1.6
 # Erstellt: 04-10-2025
-#
-# Zuletzt Geaendert: 04-17-2025
-
-
+# Zuletzt geändert: 08-05-2025
 
 # DO NOT CHANGE THE SCRIPT BELOW UNLESS YOU KNOW WHAT YOU ARE DOING
-
-
 POMODORO_TIME=$((25 * 60))
 SHORT_BREAK_TIME=$((5 * 60))
 LONG_BREAK_TIME=$((25 * 60))
@@ -30,43 +17,53 @@ ROUND=1
 TOTAL_LEARNED=0
 LOGFILE="lernzeit_log.txt"
 STATEFILE=".last_logged_week.txt"
+FAECHER_FILE="faecher.txt"
+FAECHER=()
 FACH=""
-
 TAGE=("Montag" "Dienstag" "Mittwoch" "Donnerstag" "Freitag" "Samstag" "Sonntag")
 
-# Fachauswahl am Anfang
-waehle_fach() {
-  echo "Für welches Fach lernst du heute?"
-  echo "1) Mathematik"
-  echo "2) Chemie"
-  echo "3) Französisch"
-  echo "4) Wirtschaft und Recht"
-  echo "5) Geschichte"
-  echo "6) Modul"
-  read -p "➤ Nummer eingeben (1–6): " fachwahl
+# Fächerdatei erstellen, falls nicht vorhanden
+if [ ! -f "$FAECHER_FILE" ]; then
+  echo "Keine Fächerliste gefunden. Neue Fächerliste wird erstellt."
 
-  case $fachwahl in
-    1) FACH="Mathematik" ;;
-    2) FACH="Chemie" ;;
-    3) FACH="Französisch" ;;
-    4) FACH="Wirtschaft und Recht" ;;
-    5) FACH="Geschichte" ;;
-    6) 
-      read -p "Welches Modul? (3-stellige Nummer): " modulnum
-      while ! [[ "$modulnum" =~ ^[0-9]{3}$ ]]; do
-        read -p "Ungültig. Bitte eine 3-stellige Zahl eingeben: " modulnum
-      done
-      FACH="Modul $modulnum"
-      ;;
-    *) 
-      echo "❗ Ungültige Eingabe. Standard: 'Allgemein'"
-      exit 1
-      ;;
-  esac
-  echo "Du lernst heute für: $FACH"
+  read -p "Wie viele Fächer möchtest du anlegen? " anzahl
+  while ! [[ "$anzahl" =~ ^[1-9][0-9]*$ ]]; do
+    read -p "Ungültige Eingabe. Bitte eine positive Zahl eingeben: " anzahl
+  done
+
+  > "$FAECHER_FILE"
+  for ((i = 1; i <= anzahl; i++)); do
+    read -p "Name für Fach $i: " fachname
+    while [[ -z "$fachname" ]]; do
+      read -p "Fach darf nicht leer sein. Nochmal: " fachname
+    done
+    echo "$fachname" >> "$FAECHER_FILE"
+  done
+fi
+
+# Fächer in Array laden
+mapfile -t FAECHER < "$FAECHER_FILE"
+
+# Fach auswählen
+waehle_fach() {
+  echo "Fachauswahl:"
+
+  for i in "${!FAECHER[@]}"; do
+    echo "$((i + 1))) ${FAECHER[$i]}"
+  done
+
+  read -p "Nummer eingeben (1–${#FAECHER[@]}): " fachwahl
+
+  if [[ "$fachwahl" =~ ^[0-9]+$ ]] && (( fachwahl >= 1 && fachwahl <= ${#FAECHER[@]} )); then
+    FACH="${FAECHER[$((fachwahl - 1))]}"
+    echo "Lernfach: $FACH"
+  else
+    echo "Ungültige Eingabe. Das Skript wird abgebrochen."
+    exit 1
+  fi
 }
 
-# Neue Woche einleiten
+# Woche prüfen
 check_new_week() {
   local current_week=$(date +%Y-%W)
   if [ -f "$STATEFILE" ]; then
@@ -82,7 +79,7 @@ check_new_week() {
   fi
 }
 
-# Log-Eintrag schreiben
+# Lernzeit protokollieren
 log_lernzeit() {
   local minuten=$1
   local datum=$(date "+%d.%m.%Y %H:%M")
@@ -98,16 +95,37 @@ log_lernzeit() {
   echo "$datum - $FACH - Gelernt: $minuten Minuten" >> "$LOGFILE"
 }
 
-# Countdown mit STOP-Funktion
+# Wochenstatistik anzeigen
+zeige_wochenstatistik() {
+  local woche=$(date +%Y-%W)
+  echo ""
+  echo "Wochenstatistik für KW $woche:"
+  awk -v woche="Woche ab Montag" '
+    $0 ~ "------" { active = 0 }
+    $0 ~ woche { active = 1 }
+    active && /Gelernt:/ {
+      match($0, /- (.+) - Gelernt: ([0-9]+)/, arr)
+      fach = arr[1]
+      min = arr[2]
+      sum[fach] += min
+    }
+    END {
+      for (fach in sum)
+        printf "%s: %d Minuten\n", fach, sum[fach]
+    }
+  ' "$LOGFILE"
+}
+
+# Countdown mit Abbruchmöglichkeit
 countdown_with_stop() {
   local seconds=$1
   local start_time=$(date +%s)
 
   while [ $seconds -gt 0 ]; do
-    printf "\r%02d:%02d remaining... (Tippe 'stop' + Enter zum Abbrechen) " $((seconds / 60)) $((seconds % 60))
+    printf "\r%02d:%02d verbleibend... (stop zum Abbrechen) " $((seconds / 60)) $((seconds % 60))
     read -t 1 input
     if [[ "$input" == "stop" ]]; then
-      echo -e "\nPomodoro wurde gestoppt."
+      echo -e "\nTimer gestoppt."
       local now=$(date +%s)
       local elapsed=$((now - start_time))
       local minuten=$((elapsed / 60))
@@ -126,31 +144,12 @@ countdown_with_stop() {
   return 0
 }
 
-# Wochenstatistik
-zeige_wochenstatistik() {
-  local woche=$(date +%Y-%W)
-  echo -e "\nWochenstatistik für KW $woche:"
-  awk -v woche="Woche ab Montag" '
-    $0 ~ "------" { active = 0 }
-    $0 ~ woche { active = 1 }
-    active && /Gelernt:/ {
-      match($0, /- (.+) - Gelernt: ([0-9]+)/, arr)
-      fach = arr[1]
-      min = arr[2]
-      sum[fach] += min
-    }
-    END {
-      for (fach in sum)
-        printf "📘 %s: %d Minuten\n", fach, sum[fach]
-    }
-  ' "$LOGFILE"
-}
-
-# START
+# Start
 waehle_fach
 
 while true; do
-  echo -e "\nRunde $ROUND – 25 Minuten lernen"
+  echo ""
+  echo "Runde $ROUND – 25 Minuten lernen"
   countdown_with_stop $POMODORO_TIME || break
 
   if (( ROUND % 4 == 0 )); then
@@ -164,6 +163,7 @@ while true; do
   ((ROUND++))
 done
 
-echo -e "\nGesamt-Lernzeit: $((TOTAL_LEARNED / 60)) Minuten"
+echo ""
+echo "Gesamt-Lernzeit: $((TOTAL_LEARNED / 60)) Minuten"
 zeige_wochenstatistik
-echo "Beendet. Fortschritt wurde in $LOGFILE gespeichert."
+echo "Fortschritt wurde in $LOGFILE gespeichert."
